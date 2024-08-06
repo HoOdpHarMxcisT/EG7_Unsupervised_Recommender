@@ -7,8 +7,6 @@ from PIL import Image
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.decomposition import TruncatedSVD
-
 
 # Function to load images with caching
 @st.cache_data
