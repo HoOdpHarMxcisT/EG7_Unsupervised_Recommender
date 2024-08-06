@@ -1,0 +1,8 @@
+[server]
+maxUploadSize = 600
+headless = true
+port = 8501
+enableCORS = false
+
+[logger]
+level = "debug"
