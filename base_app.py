@@ -7,49 +7,53 @@ from PIL import Image
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.decomposition import TruncatedSVD
 
-# Function to load images with caching
-@st.cache_data
+
+@st.cache_resource
 def load_image(image_path):
     return Image.open(image_path)
 
-# Load anime data with caching
 @st.cache_data
 def load_anime_data():
-    data = pd.read_csv('anime.csv')
-    if 'name' in data.columns and 'genre' in data.columns:
-        data['name'] = data['name'].fillna('')
-        data['genre'] = data['genre'].fillna('')
-        return data
-    else:
-        st.error("The required columns ('name' and 'genre') are not present in the dataset.")
-        st.stop()
+    return pd.read_csv('anime.csv')
 
-anime_data = load_anime_data()
+@st.cache_data
+def load_ratings_data():
+    return pd.read_csv('train.csv')
 
-# Load the pickled SVD model with caching
 @st.cache_resource
 def load_svd_model():
     with open('svd_model.pkl', 'rb') as f:
         return pickle.load(f)
 
+@st.cache_resource
+def compute_tfidf_matrix(anime_data):
+    tfidf_vectorizer = TfidfVectorizer(stop_words='english')
+    return tfidf_vectorizer.fit_transform(anime_data['genre'])
+
+@st.cache_resource
+def compute_cosine_similarity(_tfidf_matrix):
+    return cosine_similarity(_tfidf_matrix, _tfidf_matrix)
+
+# Load data
+anime_data = load_anime_data()
+ratings = load_ratings_data()
+
+# Ensure required columns are present and fill NaNs with empty strings
+if 'name' in anime_data.columns and 'genre' in anime_data.columns:
+    anime_data['name'] = anime_data['name'].fillna('')
+    anime_data['genre'] = anime_data['genre'].fillna('')
+else:
+    st.error("The required columns ('name' and 'genre') are not present in the dataset.")
+    st.stop()
+
+# Load models
 svd_model = load_svd_model()
 
-# Load the user-item interaction data with caching
-@st.cache_data
-def load_ratings():
-    return pd.read_csv('train.csv')
-
-ratings = load_ratings()
-
-# Initialize TF-IDF Vectorizer and compute similarity matrix with caching
-@st.cache_data
-def compute_similarity():
-    tfidf_vectorizer = TfidfVectorizer(stop_words='english')
-    tfidf_matrix = tfidf_vectorizer.fit_transform(anime_data['genre'])
-    return cosine_similarity(tfidf_matrix, tfidf_matrix)
-
-cosine_sim = compute_similarity()
+# Compute TF-IDF matrix and cosine similarity
+tfidf_matrix = compute_tfidf_matrix(anime_data)
+cosine_sim = compute_cosine_similarity(tfidf_matrix)
 
 # Sidebar navigation
 st.sidebar.title("Navigation")
@@ -79,10 +83,12 @@ def get_content_based_recommendations(anime_id=None, anime_name=None, num_recomm
     return recommended_anime[['name', 'anime_id']].to_dict(orient='records')
 
 def get_collaborative_recommendations(user_id, num_recommendations=10):
+    # Prepare the data for Surprise
     reader = Reader(rating_scale=(1, 10))
     data = Dataset.load_from_df(ratings[['user_id', 'anime_id', 'rating']], reader)
     trainset = data.build_full_trainset()
     
+    # Predict ratings for all unseen items for the user
     all_anime_ids = anime_data['anime_id'].unique()
     user_anime_ids = ratings[ratings['user_id'] == user_id]['anime_id']
     unseen_anime_ids = [anime_id for anime_id in all_anime_ids if anime_id not in user_anime_ids]
@@ -92,9 +98,13 @@ def get_collaborative_recommendations(user_id, num_recommendations=10):
         prediction = svd_model.predict(user_id, anime_id)
         predictions.append((anime_id, prediction.est))
     
+    # Sort predictions by estimated rating in descending order
     predictions.sort(key=lambda x: x[1], reverse=True)
+    
+    # Get the top N recommendations
     top_recommendations = predictions[:num_recommendations]
     
+    # Get the anime details for the top recommendations
     recommended_anime = anime_data[anime_data['anime_id'].isin([rec[0] for rec in top_recommendations])]
     
     return recommended_anime['name'].tolist()
@@ -111,7 +121,7 @@ if page == "Recommend Anime":
     if rec_method == "Content-Based Filtering":
         st.info("**Tell us what you like, and we'll suggest something you'll love!**")
         search_term = st.text_input("Enter the anime name you like:", key="search_term")
-        
+
         if st.button("Get Content-Based Recommendations"):
             if search_term:
                 recommendations = get_content_based_recommendations(anime_name=search_term)
@@ -122,7 +132,7 @@ if page == "Recommend Anime":
                 else:
                     st.write("No recommendations found for the given anime.")
             else:
-                st.error("Please enter an anime name to get recommendations.")
+                st.error("Please enter an anime ID or name to get recommendations.")
     
     elif rec_method == "Collaborative-Based Filtering":
         st.subheader("Collaborative-Based Filtering")
@@ -163,7 +173,6 @@ The impact of anime on global pop culture is undeniable. It has not only enterta
     st.markdown("""
     We aim to develop a collaborative and content-based recommender system that accurately predicts user ratings for unseen anime titles, thereby enhancing the anime discovery experience by delivering personalized, relevant, and exciting recommendations.
     """)
-    
     st.image(load_image("images/anime_fun.gif"), use_column_width=True)
 
 elif page == "Insights":
@@ -171,8 +180,8 @@ elif page == "Insights":
     st.info("**Explore Anime Insights and Statistics**")
     
     insights_option = st.selectbox("Choose an insight to view:", 
-                                   ["Top 10 Most Rated Animes", "Top 10 Least Rated Animes", "Top 10 Anime Genre Distribution", "Distribution of User Ratings"],
-                                   key="insights_option")
+                                   ["Top 10 Most Rated Animes", "Top 10 Least Rated Animes", "Top 10 Anime Genre Distribution", "Distribution of User Ratings",
+                                   "Average Ratings per Genre"], key="insights_option")
     
     if insights_option == "Top 10 Most Rated Animes":
         st.image(load_image("images/top_10_most_rated_animes.png"), use_column_width=True)
@@ -182,6 +191,8 @@ elif page == "Insights":
         st.image(load_image("images/top_10_anime_genre_distribution.png"), use_column_width=True)
     elif insights_option == "Distribution of User Ratings":
         st.image(load_image("images/distribution_of_user_ratings.png"), use_column_width=True)
+    elif insights_option == "Average Ratings per Genre":
+        st.image(load_image("images/Average_Ratings_per_Genre.png"), use_column_width=True)
 
 elif page == "Anime Archive":
     st.title("Anime Archive")
@@ -220,12 +231,10 @@ elif page == "About Us":
     - **Makhutjo Lehutjo** - Project Manager
     - **Prishani Kisten** - Github Manager
     - **Johannes Malefetsane Makgetha** - Data Scientist
-    - **Lulama Nelson Mulaudzi** - Data Scientist
     """)
     st.markdown("### Contact Us:")
     st.markdown("For inquiries, please contact us at [info@animexplore.com](mailto:info@animexplore.com).")
 
-# Footer
 st.markdown("""
 <style>
 .footer {
