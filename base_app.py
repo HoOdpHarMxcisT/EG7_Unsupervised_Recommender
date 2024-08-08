@@ -3,16 +3,11 @@ import streamlit as st
 import pandas as pd
 import pickle
 from surprise import Reader, Dataset
-from PIL import Image
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD
 
-
-@st.cache_resource
-def load_image(image_path):
-    return Image.open(image_path)
 
 @st.cache_data
 def load_anime_data():
@@ -110,10 +105,10 @@ def get_collaborative_recommendations(user_id, num_recommendations=10):
     return recommended_anime['name'].tolist()
 
 if page == "Recommend Anime":
-    st.image(load_image("images/Anime_recommender_logo.jpeg"), width=350)
+    st.image("images/Anime_recommender_logo.jpeg", width=350)
     st.title("Anime Recommender")
     st.subheader("Discover Your Next Anime Adventure with **AnimeXplore!**")
-    st.image(load_image("images/Home_anime_collage.jpg"), use_column_width=True)
+    st.image("images/Home_anime_collage.jpg", use_column_width=True)
 
     st.markdown("### Choose your recommendation method:")
     rec_method = st.selectbox("Recommendation Method", ["Content-Based Filtering", "Collaborative-Based Filtering"], key="rec_method")
@@ -158,7 +153,7 @@ if page == "Recommend Anime":
 elif page == "Overview":
     st.title("Welcome to our Anime Recommender App")
     st.info("**Proudly brought to you by AnimeXplore!**")
-    st.image(load_image("images/Overview_banner.jpg"), use_column_width=True)
+    st.image("images/Overview_banner.jpg", use_column_width=True)
 
     st.subheader("Your Fun-Filled Anime Quest Begins")
     st.markdown("""
@@ -173,7 +168,7 @@ The impact of anime on global pop culture is undeniable. It has not only enterta
     st.markdown("""
     We aim to develop a collaborative and content-based recommender system that accurately predicts user ratings for unseen anime titles, thereby enhancing the anime discovery experience by delivering personalized, relevant, and exciting recommendations.
     """)
-    st.image(load_image("images/anime_fun.gif"), use_column_width=True)
+    st.image("images/anime_fun.gif", use_column_width=True)
 
 elif page == "Insights":
     st.title("Insights")
@@ -184,47 +179,46 @@ elif page == "Insights":
                                    "Average Ratings per Genre"], key="insights_option")
     
     if insights_option == "Top 10 Most Rated Animes":
-        st.image(load_image("images/top_10_most_rated_animes.png"), use_column_width=True)
+        st.image("images/top_10_most_rated_animes.png", use_column_width=True)
     elif insights_option == "Top 10 Least Rated Animes":
-        st.image(load_image("images/top_10_least_rated_animes.png"), use_column_width=True)
+        st.image("images/top_10_least_rated_animes.png", use_column_width=True)
     elif insights_option == "Top 10 Anime Genre Distribution":
-        st.image(load_image("images/top_10_anime_genre_distribution.png"), use_column_width=True)
+        st.image("images/top_10_anime_genre_distribution.png", use_column_width=True)
     elif insights_option == "Distribution of User Ratings":
-        st.image(load_image("images/distribution_of_user_ratings.png"), use_column_width=True)
+        st.image("images/distribution_of_user_ratings.png", use_column_width=True)
     elif insights_option == "Average Ratings per Genre":
-        st.image(load_image("images/Average_Ratings_per_Genre.png"), use_column_width=True)
+        st.image("images/average_ratings_per_genre.png", use_column_width=True)
 
 elif page == "Anime Archive":
     st.title("Anime Archive")
-    st.info("**Explore the Vast Anime Collection🔥**")
+    st.info("**Explore Our Extensive Anime Library**")
     st.video("Anime_recommender_video.mp4")
     st.subheader("Search and explore our anime archive.")
-    
-    search_term = st.text_input("Search for anime by name or genre:", key="archive_search_term")
+
+    search_term = st.text_input("Search for an anime:", key="archive_search_term")
 
     if search_term:
-        filtered_data = anime_data[anime_data.apply(lambda row: search_term.lower() in row['name'].lower() or search_term.lower() in row['genre'].lower(), axis=1)]
-        if not filtered_data.empty:
-            for index, row in filtered_data.iterrows():
-                st.header(row['name'])
-                st.write(f"**Genres:** {row['genre']}")
-                st.write(f"**Rating:** {row['rating']}/10")
-        else:
-            st.write("No anime found matching your search criteria.")
+        filtered_anime = anime_data[anime_data['name'].str.contains(search_term, case=False, na=False)]
+    else:
+        filtered_anime = anime_data
+
+    st.write(filtered_anime[['anime_id', 'name', 'genre', 'type', 'episodes', 'rating', 'members']])
 
 elif page == "About Us":
-    st.title("About Us")
-    st.subheader("Learn more about this app and its creators.")
-    st.image(load_image("images/about_banner.jpg"), use_column_width=True)
-
-    st.markdown("""
-    ### About This App:
-    This Anime Recommender App is designed to help anime enthusiasts discover new shows to watch based on their preferences. 
-    Whether you are a seasoned anime fan or just getting started, this app offers a wide range of features to enhance your anime-watching experience.
+    st.title("About AnimeXplore")
+    st.info("**Discover the Team and Vision Behind AnimeXplore**")
+    st.image("images/about_banner.jpg", use_column_width=True)
     
-    ### About the Creators:
-    We are a group of passionate anime fans and developers who aim to make anime discovery easier and more enjoyable. Feel free to reach out to us with any feedback or suggestions!
+    st.markdown("""
+    Welcome to **AnimeXplore**, where our passion for anime and technology converge! We are a dedicated team of anime enthusiasts and tech wizards, working tirelessly to bring you the ultimate anime recommendation experience. Our mission is to help you discover your next favorite anime by leveraging state-of-the-art algorithms and data-driven insights.
+
+    At **AnimeXplore**, we believe that anime is more than just entertainment—it's an art form, a cultural phenomenon, and a gateway to new worlds. With our recommender system, we aim to enhance your anime journey, making it easier to find shows that resonate with your tastes and preferences.
+
+    **Our Vision:** To be the leading platform for anime discovery, connecting fans with the stories and characters they’ll love for years to come.
+
+    **Our Team:** Meet the creative minds behind AnimeXplore! We're a diverse group of individuals who share a common love for anime and a passion for innovation.
     """)
+    
     st.markdown("### Meet Our Team")
     st.markdown("""
     - **Clement Mphethi** - Lead Data Scientist
@@ -232,9 +226,7 @@ elif page == "About Us":
     - **Prishani Kisten** - Github Manager
     - **Johannes Malefetsane Makgetha** - Data Scientist
     """)
-    st.markdown("### Contact Us:")
-    st.markdown("For inquiries, please contact us at [info@animexplore.com](mailto:info@animexplore.com).")
-
+    
 st.markdown("""
 <style>
 .footer {
